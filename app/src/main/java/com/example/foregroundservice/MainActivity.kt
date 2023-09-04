@@ -23,8 +23,12 @@ class MainActivity : AppCompatActivity(), LifecycleObserver {
 
         lifecycleScope.launch(Dispatchers.Main) {
             while (true) {
+                val timeNow = System.currentTimeMillis() - startTime
                 binding.timerView.text = (System.currentTimeMillis() - startTime).displayTime()
                 delay(INTERVAL)
+                if(timeNow >= 10000){
+                    startTime = System.currentTimeMillis()
+                }
             }
         }
     }

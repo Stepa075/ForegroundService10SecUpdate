@@ -3,24 +3,26 @@ package com.example.foregroundservice
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.app.PendingIntent.*
 import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import android.util.TimeUtils
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 
 class ForegroundService : Service() {
-
+    private var startTime: Long = 0L
     private var isServiceStarted = false
     private var notificationManager: NotificationManager? = null
     private var job: Job? = null
-
+//    var timeNow = System.currentTimeMillis() - startTime
     private val builder by lazy {
         NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Simple Timer")
+            .setContentTitle("Timer is running!")
             .setGroup("Timer")
             .setGroupSummary(false)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
@@ -48,7 +50,7 @@ class ForegroundService : Service() {
     private fun processCommand(intent: Intent?) {
         when (intent?.extras?.getString(COMMAND_ID) ?: INVALID) {
             COMMAND_START -> {
-                val startTime = intent?.extras?.getLong(STARTED_TIMER_TIME_MS) ?: return
+                startTime = intent?.extras?.getLong(STARTED_TIMER_TIME_MS) ?: return
                 commandStart(startTime)
             }
             COMMAND_STOP -> commandStop()
@@ -64,15 +66,16 @@ class ForegroundService : Service() {
         try {
             moveToStartedState()
             startForegroundAndShowNotification()
-            continueTimer(startTime)
+            continueTimer()
         } finally {
             isServiceStarted = true
         }
     }
 
-    private fun continueTimer(startTime: Long) {
+    private fun continueTimer() {
         job = GlobalScope.launch(Dispatchers.Main) {
             while (true) {
+                val timeNow = System.currentTimeMillis() - startTime
                 notificationManager?.notify(
                     NOTIFICATION_ID,
                     getNotification(
@@ -80,6 +83,9 @@ class ForegroundService : Service() {
                     )
                 )
                 delay(INTERVAL)
+                if (timeNow > 10000) {
+                    startTime = System.currentTimeMillis()
+                }
             }
         }
     }
@@ -131,7 +137,9 @@ class ForegroundService : Service() {
     private fun getPendingIntent(): PendingIntent? {
         val resultIntent = Intent(this, MainActivity::class.java)
         resultIntent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
-        return PendingIntent.getActivity(this, 0, resultIntent, PendingIntent.FLAG_ONE_SHOT)
+        return getActivity(this, 0, resultIntent,
+            FLAG_ONE_SHOT or FLAG_IMMUTABLE
+        )
     }
 
     private companion object {
